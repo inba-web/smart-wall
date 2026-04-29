@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+pydivert
+scapy
+websockets

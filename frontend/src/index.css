@@ -1,0 +1,76 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+:root {
+  --bg: #f8fbff;
+  --panel: #ffffff;
+  --surface: #eaf2ff;
+  --border: #bfd5ff;
+  --text-primary: #020617;
+  --text-muted: #1e293b;
+  --accent: #1d4ed8;
+  --accent-soft: rgba(29, 78, 216, 0.12);
+  --accent-border: rgba(29, 78, 216, 0.3);
+}
+
+[data-theme="dark"] {
+  --bg: #05050a;
+  --panel: #0b1020;
+  --surface: #111936;
+  --border: #2c2a52;
+  --text-primary: #e7e9ff;
+  --text-muted: #aeb4dd;
+  --accent: #7c3aed;
+  --accent-soft: rgba(124, 58, 237, 0.2);
+  --accent-border: rgba(124, 58, 237, 0.36);
+}
+
+@layer base {
+  html, body, #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply font-sans antialiased;
+    background: var(--bg);
+    color: var(--text-primary);
+  }
+}
+
+.enterprise-bg {
+  position: relative;
+  background:
+    radial-gradient(circle at 5% 8%, rgba(37, 99, 235, 0.16), transparent 30%),
+    radial-gradient(circle at 92% 0%, rgba(59, 130, 246, 0.12), transparent 32%),
+    var(--bg);
+}
+
+[data-theme="dark"] .enterprise-bg {
+  background:
+    radial-gradient(circle at 8% 6%, rgba(37, 99, 235, 0.2), transparent 28%),
+    radial-gradient(circle at 88% 0%, rgba(124, 58, 237, 0.24), transparent 34%),
+    linear-gradient(165deg, #05050a 0%, #070b16 45%, #130a24 100%);
+}
+
+.enterprise-card {
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--panel) 88%, transparent);
+  box-shadow: 0 6px 20px rgba(2, 6, 23, 0.08);
+}
+
+[data-theme="dark"] .enterprise-card {
+  box-shadow: 0 12px 28px rgba(2, 6, 23, 0.35);
+}
+
+.enterprise-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(71, 85, 105, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(71, 85, 105, 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(circle at center, black 38%, transparent 86%);
+  z-index: 0;
+}
