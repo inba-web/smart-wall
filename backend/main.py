@@ -8,7 +8,7 @@ import re
 import socket
 from datetime import datetime
 import ipaddress
-import json
+import json 
 import os
 import ctypes
 from types import SimpleNamespace
@@ -221,6 +221,15 @@ def apply_firewall_rules():
     enforcement_state["strict_mode"] = strict_mode
     enforcement_state["updated_at"] = now_value
 
+    if not runtime_state.get("is_admin"):
+        if strict_mode or domains:
+            enforcement_state["status"] = "warning"
+            enforcement_state["message"] = "Policies are configured but not enforced. Restart backend as Administrator."
+        else:
+            enforcement_state["status"] = "idle"
+            enforcement_state["message"] = "Policy simulation mode active. Run backend as administrator to enforce firewall rules."
+        return
+
     if strict_mode:
         strict_ok = upsert_firewall_rule(STRICT_BLOCK_RULE_NAME, "Block", ["Any"])
         if not strict_ok:
@@ -370,6 +379,52 @@ def parse_firewall_log_events():
     return events
 
 
+def parse_tcp_snapshot_events():
+    events = []
+    try:
+        output = subprocess.check_output("netstat -n -p TCP", shell=True).decode("utf-8", errors="ignore")
+    except Exception:
+        return events
+
+    # Typical line:
+    # TCP    192.168.137.167:53872   142.250.193.238:443   ESTABLISHED
+    tcp_pattern = re.compile(
+        r"^\s*TCP\s+([0-9\.]+):(\d+)\s+([0-9\.]+):(\d+)\s+([A-Z_]+)\s*$",
+        re.IGNORECASE
+    )
+    seen = set()
+
+    for line in output.splitlines():
+        match = tcp_pattern.match(line)
+        if not match:
+            continue
+        local_ip = match.group(1)
+        remote_ip = match.group(3)
+        state = match.group(5).upper()
+
+        if state != "ESTABLISHED":
+            continue
+        if not is_hotspot_interface_ip(local_ip):
+            continue
+        if not is_public_ip(remote_ip):
+            continue
+
+        key = f"{local_ip}:{remote_ip}:TCP"
+        if key in seen:
+            continue
+        seen.add(key)
+
+        events.append({
+            "action": "ALLOW",
+            "src_ip": local_ip,
+            "dst_ip": remote_ip,
+            "protocol": "TCP",
+            "time": datetime.now().strftime("%I:%M %p"),
+        })
+
+    return events
+
+
 def scan_network_and_collect_traffic():
     """
     Background task that:
@@ -427,6 +482,11 @@ def scan_network_and_collect_traffic():
                     del devices[ip]
             active_block_domains = list(get_domains_to_block())
             events = parse_firewall_log_events()
+            fallback_events = parse_tcp_snapshot_events()
+            events.extend(fallback_events)
+            runtime_state["last_events_count"] = len(events)
+            if fallback_events:
+                runtime_state["telemetry_mode"] = "hybrid"
 
             with devices_lock:
                 for event in events:
@@ -469,13 +529,15 @@ def startup_tasks():
     runtime_state["monitor_started"] = True
     runtime_state["is_admin"] = is_admin_user()
     if not runtime_state["is_admin"]:
-        enforcement_state["status"] = "warning"
-        enforcement_state["message"] = "Backend is not running as Administrator. Real-time capture and blocking will not work."
-
-    logging_ok = configure_firewall_logging()
-    if not logging_ok:
-        enforcement_state["status"] = "warning"
-        enforcement_state["message"] = "Firewall logging could not be enabled. Run backend as administrator."
+        runtime_state["telemetry_mode"] = "limited"
+        runtime_state["firewall_log_readable"] = False
+        enforcement_state["status"] = "idle"
+        enforcement_state["message"] = "Running without administrator privileges. Enforcement is in simulation mode."
+    else:
+        logging_ok = configure_firewall_logging()
+        if not logging_ok:
+            enforcement_state["status"] = "warning"
+            enforcement_state["message"] = "Firewall logging could not be enabled. Run backend as administrator."
     threading.Thread(target=scan_network_and_collect_traffic, daemon=True).start()
     threading.Thread(target=apply_firewall_rules, daemon=True).start()
 
@@ -494,6 +556,10 @@ def get_devices():
 @app.post("/api/rules/{category}")
 def toggle_rule(category: str, enabled: bool):
     if category in rules:
+        if enabled and not runtime_state.get("is_admin"):
+            enforcement_state["status"] = "warning"
+            enforcement_state["message"] = "Cannot enforce policy without administrator privileges. Restart backend as Administrator."
+            return {"status": "error", "message": enforcement_state["message"], "rules": rules, "enforcement": enforcement_state}
         rules[category] = enabled
         apply_firewall_rules()
         return {"status": "success", "rules": rules, "enforcement": enforcement_state}
@@ -552,6 +618,15 @@ def remove_blocked_service(domain: str):
 @app.post("/api/strict-mode")
 def set_strict_mode(enabled: bool):
     global strict_mode
+    if enabled and not runtime_state.get("is_admin"):
+        enforcement_state["status"] = "warning"
+        enforcement_state["message"] = "Strict mode requires administrator privileges."
+        return {
+            "status": "error",
+            "message": enforcement_state["message"],
+            "strict_mode": strict_mode,
+            "enforcement": enforcement_state
+        }
     strict_mode = enabled
     apply_firewall_rules()
     return {

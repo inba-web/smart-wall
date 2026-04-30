@@ -9,8 +9,9 @@ const navItems = [
   { to: '/insights', label: 'Insights', icon: BarChart3 },
 ];
 
-export function AppShell({ children }) {
+export function AppShell({ children, enforcement, runtime }) {
   const { theme, toggleTheme } = useTheme();
+  const isAdmin = Boolean(runtime?.is_admin);
 
   return (
     <div className="min-h-screen enterprise-bg">
@@ -25,14 +26,30 @@ export function AppShell({ children }) {
               <p className="text-xs text-[var(--text-muted)]">Network Governance Console</p>
             </div>
           </div>
-          <button
-            onClick={toggleTheme}
-            className="rounded-lg px-3 py-2 text-sm border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] hover:border-[var(--accent-border)] flex items-center gap-2"
-          >
-            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-            {theme === 'dark' ? 'Light' : 'Dark'} mode
-          </button>
+          <div className="flex items-center gap-2">
+            <span
+              className={`rounded-lg px-3 py-2 text-xs border ${
+                isAdmin
+                  ? 'bg-emerald-100 text-emerald-900 border-emerald-200'
+                  : 'bg-amber-100 text-amber-900 border-amber-200'
+              }`}
+            >
+              Admin: {isAdmin ? 'Yes' : 'No'}
+            </span>
+            <button
+              onClick={toggleTheme}
+              className="rounded-lg px-3 py-2 text-sm border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] hover:border-[var(--accent-border)] flex items-center gap-2"
+            >
+              {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+              {theme === 'dark' ? 'Light' : 'Dark'} mode
+            </button>
+          </div>
         </div>
+        {enforcement?.status === 'warning' && enforcement?.message && (
+          <div className="mx-auto max-w-7xl px-6 py-3 bg-amber-100 text-amber-900 border-t border-amber-200">
+            <p className="text-sm font-medium">Warning: {enforcement.message}</p>
+          </div>
+        )}
       </header>
 
       <div className="mx-auto max-w-7xl px-6 py-6 grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">

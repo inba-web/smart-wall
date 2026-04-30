@@ -7,6 +7,7 @@ export function useSmartWallData() {
   const [blockedServices, setBlockedServices] = useState([]);
   const [strictMode, setStrictMode] = useState(false);
   const [enforcement, setEnforcement] = useState(null);
+  const [runtime, setRuntime] = useState({});
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -17,6 +18,7 @@ export function useSmartWallData() {
       setBlockedServices(rulesRes.data.blocked_services || []);
       setStrictMode(Boolean(rulesRes.data.strict_mode));
       setEnforcement(rulesRes.data.enforcement || null);
+      setRuntime(rulesRes.data.runtime || {});
       setLoading(false);
     } catch (error) {
       console.error('Error fetching SmartWall data:', error);
@@ -74,6 +76,7 @@ export function useSmartWallData() {
     blockedServices,
     strictMode,
     enforcement,
+    runtime,
     loading,
     metrics,
     toggleRule,
