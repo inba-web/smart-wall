@@ -14,6 +14,7 @@ function App() {
     blockedServices,
     strictMode,
     enforcement,
+    runtime,
     loading,
     metrics,
     toggleRule,
@@ -33,7 +34,7 @@ function App() {
   }
 
   return (
-    <AppShell>
+    <AppShell enforcement={enforcement} runtime={runtime}>
       <Routes>
         <Route path="/" element={<DashboardPage metrics={metrics} enforcement={enforcement} devices={devices} />} />
         <Route path="/devices" element={<DevicesPage devices={devices} />} />
